@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bicep
+        run: az bicep install && az bicep version
+
+      - name: Lint
+        run: make lint
+
+      - name: Compile parameter files
+        run: make params
+
+      - name: Security baseline tests
+        run: make test
+
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh
+
+  # Runs only when the repository is wired to Azure through OIDC
+  # (vars AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID).
+  # No client secret is stored anywhere.
+  what-if:
+    needs: validate
+    if: github.event_name == 'pull_request' && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        env: [dev, prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: What-if (${{ matrix.env }})
+        env:
+          HUB_FIREWALL_IP: ${{ vars.HUB_FIREWALL_IP }}
+          AKS_ADMIN_GROUP_ID: ${{ vars.AKS_ADMIN_GROUP_ID }}
+        run: scripts/deploy.sh ${{ matrix.env }} what-if | tee what-if.txt
+
+      - name: Add what-if to job summary
+        if: always()
+        run: |
+          {
+            echo "### What-if: ${{ matrix.env }}"
+            echo '```'
+            cat what-if.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
