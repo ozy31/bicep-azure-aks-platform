@@ -1,0 +1,5 @@
+# compiled ARM output
+*.json.out
+out/
+.DS_Store
+*.log
