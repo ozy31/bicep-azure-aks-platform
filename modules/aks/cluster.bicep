@@ -54,6 +54,30 @@ resource managedIdentityOperator 'Microsoft.Authorization/roleAssignments@2022-0
   }
 }
 
+// With a custom vnet the control plane manages load balancer IPs and, with
+// UDR egress, the route table. Network Contributor on the node subnet covers both.
+// The subnet must live in this resource group.
+resource nodeVnet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
+  name: split(nodeSubnetId, '/')[8]
+
+  resource nodeSubnet 'subnets' existing = {
+    name: last(split(nodeSubnetId, '/'))
+  }
+}
+
+resource subnetNetworkContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(nodeSubnetId, controlPlaneIdentity.id, '4d97b98b-1d4f-4787-a291-c67834d212e7')
+  scope: nodeVnet::nodeSubnet
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '4d97b98b-1d4f-4787-a291-c67834d212e7'
+    )
+    principalId: controlPlaneIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 var systemPool = nodePools[0]
 var userPools = skip(nodePools, 1)
 
@@ -171,7 +195,7 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
       }
     }
   }
-  dependsOn: [managedIdentityOperator]
+  dependsOn: [managedIdentityOperator, subnetNetworkContributor]
 }
 
 // User pools are separate resources so adding one never touches the system pool.
