@@ -38,3 +38,7 @@ param workloadIdentities = [
     serviceAccountName: 'demo-app'
   }
 ]
+
+// Cost guardrail for the platform resource group (billing currency).
+param monthlyBudget = 500
+param budgetStartDate = '2026-12-01'

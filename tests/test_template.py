@@ -25,6 +25,7 @@ UNTAGGED_TYPES = {
     "Microsoft.ContainerService/managedClusters/agentPools",
     "Microsoft.ContainerService/managedClusters/maintenanceConfigurations",
     "Microsoft.Resources/deployments",
+    "Microsoft.Consumption/budgets",
 }
 
 

@@ -25,6 +25,11 @@ param nodePools nodePool[]
 param adminGroupObjectIds string[] = []
 param alertEmails string[] = []
 
+@description('Monthly cost budget for the platform resource group. 0 disables it.')
+param monthlyBudget int = 0
+@description('First budget month, yyyy-MM-01.')
+param budgetStartDate string = ''
+
 @description('Service accounts that get a federated identity with Key Vault read access.')
 param workloadIdentities { namespace: string, serviceAccountName: string }[] = []
 
@@ -171,6 +176,17 @@ module identities '../modules/identity/workload-identity.bicep' = [
     }
   }
 ]
+
+module budget '../modules/cost/budget.bicep' = if (monthlyBudget > 0) {
+  name: 'budget'
+  scope: platformRg
+  params: {
+    amount: monthlyBudget
+    startDate: budgetStartDate
+    actionGroupId: monitoring.outputs.actionGroupId
+    contactEmails: alertEmails
+  }
+}
 
 output platformResourceGroup string = platformRg.name
 output clusterName string = aks.outputs.name

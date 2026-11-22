@@ -35,3 +35,7 @@ param nodePools = [
 param adminGroupObjectIds = filter(split(readEnvironmentVariable('AKS_ADMIN_GROUP_ID', ''), ','), v => !empty(v))
 
 param alertEmails = filter(split(readEnvironmentVariable('ALERT_EMAIL', ''), ','), v => !empty(v))
+
+// Cost guardrail for the platform resource group (billing currency).
+param monthlyBudget = 4000
+param budgetStartDate = '2026-12-01'
