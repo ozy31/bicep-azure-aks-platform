@@ -29,7 +29,8 @@ subscription
     ├── Key Vault (RBAC, public access off, private endpoint)
     ├── ACR Premium (admin user off, public access off, private endpoint)
     ├── Log Analytics (shared keys off) + diagnostics on every resource
-    └── Azure Monitor workspace (managed Prometheus) + alert rules
+    ├── Azure Monitor workspace (managed Prometheus) + alert rules
+    └── monthly cost budget: 80% actual and 100% forecast alerts
 ```
 
 ## Security decisions
@@ -42,6 +43,8 @@ subscription
 | Key Vault and ACR with public access disabled | `modules/security`, `modules/registry` | Reached through private endpoints that register their own DNS records. |
 | User-assigned control plane and kubelet identities | `modules/aks/cluster.bicep` | Role assignments are created before the cluster, so the first deploy does not race RBAC propagation. |
 | `denyDelete` on the stack | `scripts/deploy.sh` | Resources managed from Git cannot be deleted by hand in the portal. |
+| Upgrades only in maintenance windows | `modules/aks/cluster.bicep` | Patch releases and node images roll on Sunday nights, node images after the control plane, never in business hours. |
+| Cost budget per environment | `modules/cost/budget.bicep` | The forecast alert flags a month that is heading over budget while there is still time to act. |
 
 These are enforced by tests, not only documented: `tests/test_template.py`
 compiles the template and fails if any of them is turned off.
