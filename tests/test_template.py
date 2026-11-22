@@ -121,6 +121,34 @@ class SecurityBaseline(unittest.TestCase):
         ]
         self.assertEqual(missing, [])
 
+    def test_auto_upgrades_run_in_maintenance_windows(self):
+        cluster = of_type("Microsoft.ContainerService/managedClusters")[0]
+        self.assertEqual(cluster["properties"]["autoUpgradeProfile"]["upgradeChannel"], "patch")
+        names = {
+            r["name"]
+            for r in of_type("Microsoft.ContainerService/managedClusters/maintenanceConfigurations")
+        }
+        joined = " ".join(names)
+        self.assertIn("aksManagedAutoUpgradeSchedule", joined)
+        self.assertIn("aksManagedNodeOSUpgradeSchedule", joined)
+
+    def test_node_image_window_follows_control_plane_window(self):
+        schedules = {
+            r["name"]: r for r in of_type("Microsoft.ContainerService/managedClusters/maintenanceConfigurations")
+        }
+        node_os = next(v for k, v in schedules.items() if "aksManagedNodeOSUpgradeSchedule" in k)
+        self.assertIn("dependsOn", node_os)
+        # Start time is derived from the control plane window, not a second literal.
+        self.assertIn("maintenanceWindow", node_os["properties"]["maintenanceWindow"]["startTime"])
+
+    def test_budget_alerts_on_actual_and_forecast(self):
+        budget = of_type("Microsoft.Consumption/budgets")[0]
+        notes = budget["properties"]["notifications"]
+        kinds = {n["thresholdType"] for n in notes.values()}
+        self.assertEqual(kinds, {"Actual", "Forecasted"})
+        for note in notes.values():
+            self.assertTrue(note["contactGroups"], "budget alerts must reach the action group")
+
     def test_no_secure_outputs_or_keys_in_outputs(self):
         with open(TEMPLATE_PATH, encoding="utf-8") as handle:
             text = handle.read()
