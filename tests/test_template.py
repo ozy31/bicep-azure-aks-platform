@@ -23,6 +23,7 @@ UNTAGGED_TYPES = {
     "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
     "Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials",
     "Microsoft.ContainerService/managedClusters/agentPools",
+    "Microsoft.ContainerService/managedClusters/maintenanceConfigurations",
     "Microsoft.Resources/deployments",
 }
 

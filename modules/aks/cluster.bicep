@@ -24,6 +24,13 @@ param userDefinedRouting bool = false
 @description('Entra ID group object IDs that get cluster-admin through Azure RBAC.')
 param adminGroupObjectIds string[] = []
 
+@description('Weekly maintenance window for automatic Kubernetes and node image upgrades (UTC).')
+param maintenanceWindow { dayOfWeek: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'), startTime: string, durationHours: int } = {
+  dayOfWeek: 'Sunday'
+  startTime: '02:00'
+  durationHours: 4
+}
+
 param podCidr string = '10.244.0.0/16'
 param serviceCidr string = '10.0.0.0/16'
 param dnsServiceIp string = '10.0.0.10'
@@ -225,6 +232,46 @@ resource pools 'Microsoft.ContainerService/managedClusters/agentPools@2024-09-01
     }
   }
 ]
+
+// Automatic upgrades only start inside these windows, so a patch release
+// never rolls nodes in the middle of a business day. Node images update a
+// few hours after the control plane, never both at once.
+resource upgradeSchedule 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-01' = {
+  parent: cluster
+  name: 'aksManagedAutoUpgradeSchedule'
+  properties: {
+    maintenanceWindow: {
+      schedule: {
+        weekly: {
+          dayOfWeek: maintenanceWindow.dayOfWeek
+          intervalWeeks: 1
+        }
+      }
+      startTime: maintenanceWindow.startTime
+      durationHours: maintenanceWindow.durationHours
+      utcOffset: '+00:00'
+    }
+  }
+}
+
+resource nodeOsSchedule 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-01' = {
+  parent: cluster
+  name: 'aksManagedNodeOSUpgradeSchedule'
+  properties: {
+    maintenanceWindow: {
+      schedule: {
+        weekly: {
+          dayOfWeek: maintenanceWindow.dayOfWeek
+          intervalWeeks: 1
+        }
+      }
+      startTime: format('{0:D2}:00', (int(split(maintenanceWindow.startTime, ':')[0]) + maintenanceWindow.durationHours) % 24)
+      durationHours: maintenanceWindow.durationHours
+      utcOffset: '+00:00'
+    }
+  }
+  dependsOn: [upgradeSchedule]
+}
 
 resource diagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'to-log-analytics'
