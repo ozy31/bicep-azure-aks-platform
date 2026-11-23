@@ -42,12 +42,20 @@ def walk(template, module_path="main"):
         yield module_path, name, resource
 
 
-def load():
-    with open(TEMPLATE_PATH, encoding="utf-8") as handle:
-        return list(walk(json.load(handle)))
+def templates(template):
+    """Yields the template and every nested module template."""
+    yield template
+    for _, _, resource in walk(template):
+        nested = resource.get("properties", {}).get("template")
+        if resource.get("type") == "Microsoft.Resources/deployments" and nested:
+            yield nested
 
 
-RESOURCES = load()
+with open(TEMPLATE_PATH, encoding="utf-8") as _handle:
+    ROOT = json.load(_handle)
+
+RESOURCES = list(walk(ROOT))
+TEMPLATES = list(templates(ROOT))
 
 
 def of_type(resource_type):
@@ -91,6 +99,19 @@ class SecurityBaseline(unittest.TestCase):
             net = cluster["properties"]["networkProfile"]
             self.assertEqual(net["networkPluginMode"], "overlay")
             self.assertEqual(net["networkPolicy"], "cilium")
+
+    def test_node_upgrades_drain_and_soak(self):
+        # Pools share one variable; check its value in the module that defines it.
+        found = [t["variables"]["upgradeSettings"] for t in TEMPLATES if "upgradeSettings" in t.get("variables", {})]
+        self.assertEqual(len(found), 1)
+        settings = found[0]
+        self.assertGreater(settings["nodeSoakDurationInMinutes"], 0)
+        self.assertLessEqual(settings["drainTimeoutInMinutes"], 60)
+        cluster = of_type("Microsoft.ContainerService/managedClusters")[0]
+        pools = [cluster["properties"]["agentPoolProfiles"][0]]
+        pools += [p["properties"] for p in of_type("Microsoft.ContainerService/managedClusters/agentPools")]
+        for pool in pools:
+            self.assertEqual(pool["upgradeSettings"], "[variables('upgradeSettings')]")
 
     def test_key_vault_is_private_and_rbac(self):
         for vault in of_type("Microsoft.KeyVault/vaults"):

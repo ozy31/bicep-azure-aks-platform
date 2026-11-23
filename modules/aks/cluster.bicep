@@ -85,6 +85,16 @@ resource subnetNetworkContributor 'Microsoft.Authorization/roleAssignments@2022-
   }
 }
 
+// Surge a third of each pool, give pods up to 30 minutes to drain (a PDB
+// that never allows eviction fails the upgrade instead of hanging it), and
+// wait 5 minutes after each batch so a bad node image shows up before the
+// next batch is drained.
+var upgradeSettings = {
+  maxSurge: '33%'
+  drainTimeoutInMinutes: 30
+  nodeSoakDurationInMinutes: 5
+}
+
 var systemPool = nodePools[0]
 var userPools = skip(nodePools, 1)
 
@@ -182,9 +192,7 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
         maxPods: 110
         nodeTaints: ['CriticalAddonsOnly=true:NoSchedule']
         nodeLabels: systemPool.?labels ?? {}
-        upgradeSettings: {
-          maxSurge: '33%'
-        }
+        upgradeSettings: upgradeSettings
       }
     ]
     addonProfiles: {
@@ -236,9 +244,7 @@ resource pools 'Microsoft.ContainerService/managedClusters/agentPools@2024-09-01
       maxPods: 110
       nodeTaints: pool.?taints ?? []
       nodeLabels: pool.?labels ?? {}
-      upgradeSettings: {
-        maxSurge: '33%'
-      }
+      upgradeSettings: upgradeSettings
     }
   }
 ]
