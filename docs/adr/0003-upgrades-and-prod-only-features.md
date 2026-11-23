@@ -1,4 +1,4 @@
-# 0003: Unattended upgrades, and features that only prod pays for
+# 3. Unattended upgrades, and features only prod pays for
 
 ## Status
 
@@ -45,5 +45,5 @@ Prod only, switched on `env == 'prod'`:
   This is surfaced, not hidden; fix the PDB.
 - The tests pin each prod-only switch to the same condition, so the tier
   and the cost analysis add-on cannot drift apart.
-- Dev does not exercise Defender. Alerts from it are tested in prod's
-  staging subscription, not here.
+- Dev does not exercise Defender, so its alert routing is first seen in
+  prod. Point a staging environment at `env = 'prod'` to test it earlier.
