@@ -219,6 +219,13 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
         enabled: true
       }
     }
+    // Splits the cluster bill by namespace in Cost Management. The add-on
+    // needs the Standard tier, which only prod runs on.
+    metricsProfile: {
+      costAnalysis: {
+        enabled: env == 'prod'
+      }
+    }
   }
   dependsOn: [managedIdentityOperator, subnetNetworkContributor]
 }

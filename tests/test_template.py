@@ -169,6 +169,15 @@ class SecurityBaseline(unittest.TestCase):
         # Start time is derived from the control plane window, not a second literal.
         self.assertIn("maintenanceWindow", node_os["properties"]["maintenanceWindow"]["startTime"])
 
+    def test_cost_analysis_follows_the_standard_tier(self):
+        cluster = of_type("Microsoft.ContainerService/managedClusters")[0]
+        tier = cluster["sku"]["tier"]
+        cost = cluster["properties"]["metricsProfile"]["costAnalysis"]["enabled"]
+        # Cost analysis is rejected on the Free tier, so both must switch on the same condition.
+        condition = "equals(parameters('env'), 'prod')"
+        self.assertIn(condition, tier)
+        self.assertIn(condition, cost)
+
     def test_budget_alerts_on_actual_and_forecast(self):
         budget = of_type("Microsoft.Consumption/budgets")[0]
         notes = budget["properties"]["notifications"]
