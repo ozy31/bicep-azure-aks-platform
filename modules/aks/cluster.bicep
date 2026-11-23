@@ -25,7 +25,11 @@ param userDefinedRouting bool = false
 param adminGroupObjectIds string[] = []
 
 @description('Weekly maintenance window for automatic Kubernetes and node image upgrades (UTC).')
-param maintenanceWindow { dayOfWeek: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'), startTime: string, durationHours: int } = {
+param maintenanceWindow {
+  dayOfWeek: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday')
+  startTime: string
+  durationHours: int
+} = {
   dayOfWeek: 'Sunday'
   startTime: '02:00'
   durationHours: 4
@@ -288,7 +292,10 @@ resource nodeOsSchedule 'Microsoft.ContainerService/managedClusters/maintenanceC
           intervalWeeks: 1
         }
       }
-      startTime: format('{0:D2}:00', (int(split(maintenanceWindow.startTime, ':')[0]) + maintenanceWindow.durationHours) % 24)
+      startTime: format(
+        '{0:D2}:00',
+        (int(split(maintenanceWindow.startTime, ':')[0]) + maintenanceWindow.durationHours) % 24
+      )
       durationHours: maintenanceWindow.durationHours
       utcOffset: '+00:00'
     }

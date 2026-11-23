@@ -1,6 +1,6 @@
 ENV ?= dev
 
-.PHONY: build lint params test what-if apply destroy fmt
+.PHONY: build lint params test what-if apply destroy fmt fmt-check
 
 build: ## Compile the entry point to ARM JSON in out/
 	@mkdir -p out
@@ -14,6 +14,9 @@ params: ## Compile both parameter files
 
 fmt: ## Format every Bicep file in place
 	@find infra modules -name '*.bicep' -o -name '*.bicepparam' | xargs -n1 az bicep format --file
+
+fmt-check: ## Fail if any file differs from az bicep format output
+	scripts/fmt-check.sh
 
 test: build ## Assert security properties on the compiled template
 	python3 tests/test_template.py out/main.json

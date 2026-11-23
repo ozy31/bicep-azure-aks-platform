@@ -17,6 +17,9 @@ jobs:
       - name: Install Bicep
         run: az bicep install && az bicep version
 
+      - name: Format
+        run: make fmt-check
+
       - name: Lint
         run: make lint
 
