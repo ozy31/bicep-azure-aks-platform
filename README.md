@@ -25,7 +25,8 @@ subscription
     │   ├── Azure CNI Overlay + Cilium dataplane and network policy
     │   ├── workload identity + OIDC issuer
     │   ├── system pool (tainted CriticalAddonsOnly) + user pools
-    │   └── Key Vault CSI driver, Azure Policy, image cleaner
+    │   ├── Key Vault CSI driver, Azure Policy, image cleaner
+    │   └── prod: Defender for Containers, cost analysis, Standard tier
     ├── Key Vault (RBAC, public access off, private endpoint)
     ├── ACR Premium (admin user off, public access off, private endpoint)
     ├── Log Analytics (shared keys off) + diagnostics on every resource
@@ -44,6 +45,8 @@ subscription
 | User-assigned control plane and kubelet identities | `modules/aks/cluster.bicep` | Role assignments are created before the cluster, so the first deploy does not race RBAC propagation. |
 | `denyDelete` on the stack | `scripts/deploy.sh` | Resources managed from Git cannot be deleted by hand in the portal. |
 | Upgrades only in maintenance windows | `modules/aks/cluster.bicep` | Patch releases and node images roll on Sunday nights, node images after the control plane, never in business hours. |
+| Drain timeout and soak time per upgrade batch | same | A blocked drain fails fast, and a bad node image is visible before the next batch rolls. |
+| Defender for Containers in prod | same | Runtime threat detection where the real workloads run, without paying for it in dev. |
 | Cost budget per environment | `modules/cost/budget.bicep` | The forecast alert flags a month that is heading over budget while there is still time to act. |
 
 These are enforced by tests, not only documented: `tests/test_template.py`
@@ -54,6 +57,7 @@ compiles the template and fails if any of them is turned off.
 Requirements: Azure CLI 2.61+ (deployment stacks), `az bicep install`, Python 3.
 
 ```bash
+make fmt-check # every file matches `az bicep format`
 make lint      # Bicep linter, warnings are errors (see bicepconfig.json)
 make params    # compile dev and prod .bicepparam files
 make test      # build out/main.json and run the security baseline tests
@@ -76,7 +80,7 @@ tenant-specific comes from environment variables.
 
 ## CI
 
-`.github/workflows/ci.yml` runs lint, parameter compilation, the baseline
+`.github/workflows/ci.yml` runs the format check, lint, parameter compilation, the baseline
 tests and shellcheck on every push. On pull requests it also runs `what-if`
 for dev and prod through OIDC federation (no client secret) and posts the
 diff to the job summary. That job is skipped until the repository variables
@@ -94,7 +98,8 @@ modules/security            Key Vault
 modules/registry            ACR
 modules/identity            AcrPull, federated workload identities
 modules/monitoring          Log Analytics, managed Prometheus, alerts
-docs/adr                    design decisions
+modules/cost                monthly budget with actual and forecast alerts
+docs/adr                    design decisions (stacks, networking, upgrades)
 ```
 
 ## Status
