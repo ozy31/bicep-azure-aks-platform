@@ -138,6 +138,16 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
         enabled: true
         intervalHours: 48
       }
+      // Defender for Containers runtime threat detection. Billed per vCore,
+      // so it is on in prod only; dev clusters still get image cleanup and policy.
+      defender: env == 'prod'
+        ? {
+            logAnalyticsWorkspaceResourceId: logAnalyticsId
+            securityMonitoring: {
+              enabled: true
+            }
+          }
+        : null
     }
     autoUpgradeProfile: {
       upgradeChannel: 'patch'

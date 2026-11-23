@@ -73,6 +73,13 @@ class SecurityBaseline(unittest.TestCase):
             self.assertIs(props["oidcIssuerProfile"]["enabled"], True)
             self.assertIs(props["securityProfile"]["workloadIdentity"]["enabled"], True)
 
+    def test_aks_runs_defender_in_prod(self):
+        for cluster in of_type("Microsoft.ContainerService/managedClusters"):
+            defender = cluster["properties"]["securityProfile"]["defender"]
+            # env is a parameter, so the compiled value is an expression.
+            self.assertIn("equals(parameters('env'), 'prod')", defender)
+            self.assertIn("securityMonitoring", defender)
+
     def test_aks_system_pool_is_tainted(self):
         for cluster in of_type("Microsoft.ContainerService/managedClusters"):
             system = cluster["properties"]["agentPoolProfiles"][0]
