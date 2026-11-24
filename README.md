@@ -31,6 +31,7 @@ subscription
     ├── ACR Premium (admin user off, public access off, private endpoint)
     ├── Log Analytics (shared keys off) + diagnostics on every resource
     ├── Azure Monitor workspace (managed Prometheus) + alert rules
+    ├── Service Health alert: Azure incidents for AKS, Key Vault, ACR, network in this region
     └── monthly cost budget: 80% actual and 100% forecast alerts
 ```
 
@@ -47,6 +48,7 @@ subscription
 | Upgrades only in maintenance windows | `modules/aks/cluster.bicep` | Patch releases and node images roll on Sunday nights, node images after the control plane, never in business hours. |
 | Drain timeout and soak time per upgrade batch | same | A blocked drain fails fast, and a bad node image is visible before the next batch rolls. |
 | Defender for Containers in prod | same | Runtime threat detection where the real workloads run, without paying for it in dev. |
+| Break-glass principals exempt from deny settings | `scripts/deploy.sh` | `BREAK_GLASS_PRINCIPAL_IDS` lets an emergency account fix a broken resource when the pipeline is down; everyone else stays denied. |
 | Cost budget per environment | `modules/cost/budget.bicep` | The forecast alert flags a month that is heading over budget while there is still time to act. |
 
 These are enforced by tests, not only documented: `tests/test_template.py`
@@ -73,10 +75,27 @@ make apply ENV=dev
 scripts/kubeconfig.sh dev    # from inside the network; the API server is private
 ```
 
+`BREAK_GLASS_PRINCIPAL_IDS` (comma-separated object IDs, optional) adds
+emergency accounts to the deny-settings exclusions next to the deployer.
+
 `prod` refuses to apply without `CONFIRM_PROD=yes` and reads the hub
 firewall IP from `HUB_FIREWALL_IP` to switch egress to user-defined routing.
 No object IDs, subscription IDs or emails are committed: everything
 tenant-specific comes from environment variables.
+
+## Alerts
+
+Everything routes to one action group per environment:
+
+| Source | Alerts |
+| --- | --- |
+| Managed Prometheus | crash looping pods, NotReady nodes, node filesystem and PVCs filling up, deployments short of replicas, failed Jobs |
+| Service Health | Azure incidents, required actions, maintenance and security advisories for the platform's services in its region |
+| Cost Management | 80% of the monthly budget spent, 100% forecast |
+
+The tests check that every Prometheus rule has a hold time, a severity, an
+action group and auto-resolve, and parse each expression with `promtool`
+so a typo fails CI instead of the deployment.
 
 ## CI
 
