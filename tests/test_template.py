@@ -9,7 +9,10 @@ Usage: python3 tests/test_template.py out/main.json
 """
 
 import json
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 
 TEMPLATE_PATH = sys.argv.pop(1) if len(sys.argv) > 1 else "out/main.json"
@@ -195,6 +198,32 @@ class SecurityBaseline(unittest.TestCase):
         self.assertEqual(kinds, {"Actual", "Forecasted"})
         for note in notes.values():
             self.assertTrue(note["contactGroups"], "budget alerts must reach the action group")
+
+    def prometheus_rules(self):
+        groups = of_type("Microsoft.AlertsManagement/prometheusRuleGroups")
+        return [rule for g in groups for rule in g["properties"]["rules"]]
+
+    def test_prometheus_alerts_route_and_resolve(self):
+        rules = self.prometheus_rules()
+        self.assertGreaterEqual(len(rules), 6)
+        for rule in rules:
+            name = rule["alert"]
+            self.assertTrue(rule["for"].startswith("PT"), name)
+            self.assertIn(rule["severity"], range(0, 5), name)
+            self.assertTrue(rule["actions"], f"{name} has no action group")
+            self.assertIs(rule["resolveConfiguration"]["autoResolved"], True, name)
+            self.assertIn("description", rule["annotations"], name)
+
+    @unittest.skipUnless(shutil.which("promtool"), "promtool not installed")
+    def test_prometheus_expressions_parse(self):
+        # Azure only rejects a bad expression at deploy time; promtool catches it here.
+        groups = {"groups": [{"name": "platform", "rules": [
+            {"alert": r["alert"], "expr": r["expression"]} for r in self.prometheus_rules()
+        ]}]}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(groups, handle)  # JSON is valid YAML
+        result = subprocess.run(["promtool", "check", "rules", handle.name], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_no_secure_outputs_or_keys_in_outputs(self):
         with open(TEMPLATE_PATH, encoding="utf-8") as handle:

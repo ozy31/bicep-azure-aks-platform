@@ -121,6 +121,30 @@ resource platformAlerts 'Microsoft.AlertsManagement/prometheusRuleGroups@2023-03
         actions: [{ actionGroupId: actionGroupId }]
         resolveConfiguration: { autoResolved: true, timeToResolve: 'PT10M' }
       }
+      {
+        alert: 'KubeDeploymentReplicasMismatch'
+        expression: 'kube_deployment_spec_replicas{job="kube-state-metrics"} > kube_deployment_status_replicas_available{job="kube-state-metrics"}'
+        for: 'PT15M'
+        severity: 3
+        labels: { team: 'platform' }
+        annotations: {
+          description: 'Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has had fewer available replicas than desired for 15 minutes.'
+        }
+        actions: [{ actionGroupId: actionGroupId }]
+        resolveConfiguration: { autoResolved: true, timeToResolve: 'PT10M' }
+      }
+      {
+        alert: 'KubeJobFailed'
+        expression: 'kube_job_failed{job="kube-state-metrics", condition="true"} > 0'
+        for: 'PT5M'
+        severity: 3
+        labels: { team: 'platform' }
+        annotations: {
+          description: 'Job {{ $labels.namespace }}/{{ $labels.job_name }} failed. Delete the Job to clear the alert after fixing it.'
+        }
+        actions: [{ actionGroupId: actionGroupId }]
+        resolveConfiguration: { autoResolved: true, timeToResolve: 'PT10M' }
+      }
     ]
   }
 }
