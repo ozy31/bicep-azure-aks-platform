@@ -163,6 +163,16 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
           }
         : null
     }
+    // Pack nodes tightly and remove idle ones after 10 minutes; keep zone
+    // pools balanced so a zone outage does not take most of a workload.
+    autoScalerProfile: {
+      expander: 'least-waste'
+      'balance-similar-node-groups': 'true'
+      'scale-down-unneeded-time': '10m'
+      'scale-down-delay-after-add': '10m'
+      'skip-nodes-with-local-storage': 'false'
+      'max-graceful-termination-sec': '600'
+    }
     autoUpgradeProfile: {
       upgradeChannel: 'patch'
       nodeOSUpgradeChannel: 'NodeImage'

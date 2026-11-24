@@ -94,6 +94,16 @@ class SecurityBaseline(unittest.TestCase):
             self.assertEqual(system["mode"], "System")
             self.assertIn("CriticalAddonsOnly=true:NoSchedule", system["nodeTaints"])
 
+    def test_autoscaler_balances_zones_and_scales_down(self):
+        cluster = of_type("Microsoft.ContainerService/managedClusters")[0]
+        profile = cluster["properties"]["autoScalerProfile"]
+        self.assertEqual(profile["balance-similar-node-groups"], "true")
+        self.assertEqual(profile["expander"], "least-waste")
+        # emptyDir is scratch space here; it must not pin nodes forever.
+        self.assertEqual(profile["skip-nodes-with-local-storage"], "false")
+        # Pods get as long to stop on scale-down as on upgrade drains.
+        self.assertLessEqual(int(profile["max-graceful-termination-sec"]), 30 * 60)
+
     def test_aks_uses_overlay_and_network_policy(self):
         for cluster in of_type("Microsoft.ContainerService/managedClusters"):
             net = cluster["properties"]["networkProfile"]
