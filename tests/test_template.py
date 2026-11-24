@@ -191,6 +191,17 @@ class SecurityBaseline(unittest.TestCase):
         self.assertIn(condition, tier)
         self.assertIn(condition, cost)
 
+    def test_service_health_reaches_the_action_group(self):
+        alert = of_type("Microsoft.Insights/activityLogAlerts")[0]
+        props = alert["properties"]
+        self.assertEqual(props["scopes"], ["[subscription().id]"])
+        conditions = props["condition"]["allOf"]
+        self.assertIn({"field": "category", "equals": "ServiceHealth"}, conditions)
+        fields = {c.get("field") for c in conditions}
+        # Without a region filter every Azure incident worldwide would alert.
+        self.assertIn("properties.impactedServices[*].ImpactedRegions[*].RegionName", fields)
+        self.assertTrue(props["actions"]["actionGroups"])
+
     def test_budget_alerts_on_actual_and_forecast(self):
         budget = of_type("Microsoft.Consumption/budgets")[0]
         notes = budget["properties"]["notifications"]

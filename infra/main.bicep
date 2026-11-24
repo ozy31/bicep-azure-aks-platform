@@ -4,7 +4,7 @@
 
 targetScope = 'subscription'
 
-import { environment, requiredTags, nodePool, resourceName, uniqueAlnumName, regionCodes } from '../modules/shared/types.bicep'
+import { environment, requiredTags, nodePool, resourceName, uniqueAlnumName, regionCodes, regionDisplayNames } from '../modules/shared/types.bicep'
 
 param location string
 param env environment
@@ -176,6 +176,17 @@ module identities '../modules/identity/workload-identity.bicep' = [
     }
   }
 ]
+
+module serviceHealth '../modules/monitoring/service-health.bicep' = {
+  name: 'service-health'
+  scope: platformRg
+  params: {
+    tags: tags
+    name: resourceName('alert-svchealth', workload, env, region)
+    actionGroupId: monitoring.outputs.actionGroupId
+    regions: [regionDisplayNames[?location] ?? location]
+  }
+}
 
 module budget '../modules/cost/budget.bicep' = if (monthlyBudget > 0) {
   name: 'budget'

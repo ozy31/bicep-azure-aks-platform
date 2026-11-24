@@ -67,3 +67,14 @@ var regionCodes = {
   uksouth: 'uks'
   eastus2: 'eus2'
 }
+
+@export()
+@description('Region names as Azure Service Health writes them in impacted regions.')
+var regionDisplayNames = {
+  westeurope: 'West Europe'
+  northeurope: 'North Europe'
+  swedencentral: 'Sweden Central'
+  germanywestcentral: 'Germany West Central'
+  uksouth: 'UK South'
+  eastus2: 'East US 2'
+}
