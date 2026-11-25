@@ -29,6 +29,7 @@ UNTAGGED_TYPES = {
     "Microsoft.ContainerService/managedClusters/maintenanceConfigurations",
     "Microsoft.Resources/deployments",
     "Microsoft.Consumption/budgets",
+    "Microsoft.CognitiveServices/accounts/deployments",
 }
 
 
@@ -153,6 +154,21 @@ class SecurityBaseline(unittest.TestCase):
             self.assertIs(props["adminUserEnabled"], False)
             self.assertEqual(props["publicNetworkAccess"], "Disabled")
             self.assertEqual(props["policies"]["exportPolicy"]["status"], "disabled")
+
+    def test_openai_is_private_and_keyless(self):
+        for account in of_type("Microsoft.CognitiveServices/accounts"):
+            props = account["properties"]
+            self.assertEqual(props["publicNetworkAccess"], "Disabled")
+            self.assertIs(props["disableLocalAuth"], True)
+            self.assertEqual(props["networkAcls"]["defaultAction"], "Deny")
+            self.assertIs(props["restrictOutboundNetworkAccess"], True)
+            # Entra ID tokens are only accepted on a custom subdomain.
+            self.assertIn("customSubDomainName", props)
+
+    def test_model_versions_are_pinned(self):
+        for deployment in of_type("Microsoft.CognitiveServices/accounts/deployments"):
+            self.assertEqual(deployment["properties"]["versionUpgradeOption"], "NoAutoUpgrade")
+            self.assertEqual(deployment["copy"]["batchSize"], 1)
 
     def test_log_analytics_disables_shared_keys(self):
         for workspace in of_type("Microsoft.OperationalInsights/workspaces"):

@@ -30,6 +30,15 @@ param monthlyBudget int = 0
 @description('First budget month, yyyy-MM-01.')
 param budgetStartDate string = ''
 
+@description('Private Azure OpenAI account and its model deployments. Off when empty.')
+param openAiDeployments {
+  name: string
+  model: string
+  version: string
+  sku: ('Standard' | 'GlobalStandard' | 'DataZoneStandard')
+  capacity: int
+}[] = []
+
 @description('Service accounts that get a federated identity with Key Vault read access.')
 param workloadIdentities { namespace: string, serviceAccountName: string }[] = []
 
@@ -38,6 +47,9 @@ var hubRgName = resourceName('rg', '${workload}-hub', env, region)
 var platformRgName = resourceName('rg', workload, env, region)
 var keyVaultZone = 'privatelink.vaultcore.azure.net'
 var acrZone = 'privatelink.azurecr.io'
+var openAiZone = 'privatelink.openai.azure.com'
+var enableOpenAi = !empty(openAiDeployments)
+var privateDnsZones = concat([keyVaultZone, acrZone], enableOpenAi ? [openAiZone] : [])
 
 resource hubRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: hubRgName
@@ -74,7 +86,7 @@ module hub '../modules/network/hub.bicep' = {
     vnetName: resourceName('vnet', '${workload}-hub', env, region)
     addressPrefix: hubAddressPrefix
     logAnalyticsId: monitoring.outputs.logAnalyticsId
-    privateDnsZones: [keyVaultZone, acrZone]
+    privateDnsZones: privateDnsZones
   }
 }
 
@@ -90,7 +102,7 @@ module spoke '../modules/network/spoke.bicep' = {
     hubResourceGroupName: hubRg.name
     hubVnetId: hub.outputs.vnetId
     hubVnetName: hub.outputs.vnetName
-    privateDnsZoneNames: [keyVaultZone, acrZone]
+    privateDnsZoneNames: privateDnsZones
     firewallPrivateIp: firewallPrivateIp
   }
 }
@@ -120,6 +132,21 @@ module registry '../modules/registry/acr.bicep' = {
     privateEndpointSubnetId: spoke.outputs.privateEndpointSubnetId
     privateDnsZoneId: hub.outputs.privateDnsZoneIds[acrZone]
     logAnalyticsId: monitoring.outputs.logAnalyticsId
+  }
+}
+
+module openAi '../modules/ai/openai.bicep' = if (enableOpenAi) {
+  name: 'openai'
+  scope: platformRg
+  params: {
+    location: location
+    env: env
+    tags: tags
+    name: uniqueAlnumName('oai', workload, env, platformRg.id, 40)
+    privateEndpointSubnetId: spoke.outputs.privateEndpointSubnetId
+    privateDnsZoneId: hub.outputs.privateDnsZoneIds[?openAiZone] ?? ''
+    logAnalyticsId: monitoring.outputs.logAnalyticsId
+    deployments: openAiDeployments
   }
 }
 
@@ -203,6 +230,7 @@ output platformResourceGroup string = platformRg.name
 output clusterName string = aks.outputs.name
 output acrLoginServer string = registry.outputs.loginServer
 output keyVaultUri string = keyVault.outputs.uri
+output openAiEndpoint string = enableOpenAi ? openAi!.outputs.endpoint : ''
 output workloadIdentityClientIds array = [
   for (wi, i) in workloadIdentities: {
     serviceAccount: '${wi.namespace}/${wi.serviceAccountName}'
