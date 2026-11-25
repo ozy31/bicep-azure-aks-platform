@@ -27,6 +27,19 @@ param nodePools = [
     maxCount: 5
     zones: []
   }
+  // GPU inference pool: empty until a pod that tolerates the taint is pending.
+  {
+    name: 'gpu'
+    vmSize: 'Standard_NC4as_T4_v3'
+    minCount: 0
+    maxCount: 2
+    zones: []
+    taints: ['nvidia.com/gpu=present:NoSchedule']
+    labels: {
+      workload: 'inference'
+    }
+    priority: 'Spot'
+  }
 ]
 
 // Comma-separated object IDs come from the environment so none are committed.

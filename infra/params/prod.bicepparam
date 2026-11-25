@@ -30,6 +30,20 @@ param nodePools = [
     maxCount: 20
     zones: ['1', '2', '3']
   }
+  // GPU inference pool: empty until a pod that tolerates the taint is pending.
+  {
+    name: 'gpu'
+    vmSize: 'Standard_NC4as_T4_v3'
+    minCount: 0
+    maxCount: 6
+    // GPU SKUs are not offered in every zone; let Azure place them.
+    zones: []
+    taints: ['nvidia.com/gpu=present:NoSchedule']
+    labels: {
+      workload: 'inference'
+    }
+    priority: 'Regular'
+  }
 ]
 
 param adminGroupObjectIds = filter(split(readEnvironmentVariable('AKS_ADMIN_GROUP_ID', ''), ','), v => !empty(v))
