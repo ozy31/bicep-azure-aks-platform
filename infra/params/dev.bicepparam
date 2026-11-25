@@ -50,6 +50,11 @@ param workloadIdentities = [
     namespace: 'demo'
     serviceAccountName: 'demo-app'
   }
+  {
+    namespace: 'inference'
+    serviceAccountName: 'llm-gateway'
+    openAi: true
+  }
 ]
 
 // Cost guardrail for the platform resource group (billing currency).

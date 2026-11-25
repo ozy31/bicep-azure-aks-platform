@@ -40,7 +40,12 @@ param openAiDeployments {
 }[] = []
 
 @description('Service accounts that get a federated identity with Key Vault read access.')
-param workloadIdentities { namespace: string, serviceAccountName: string }[] = []
+param workloadIdentities {
+  namespace: string
+  serviceAccountName: string
+  @description('Also grant Cognitive Services OpenAI User on the platform account.')
+  openAi: bool?
+}[] = []
 
 var region = regionCodes[?location] ?? location
 var hubRgName = resourceName('rg', '${workload}-hub', env, region)
@@ -200,6 +205,7 @@ module identities '../modules/identity/workload-identity.bicep' = [
       namespace: wi.namespace
       serviceAccountName: wi.serviceAccountName
       keyVaultName: keyVault.outputs.name
+      openAiAccountName: enableOpenAi && (wi.?openAi ?? false) ? openAi!.outputs.name : ''
     }
   }
 ]
