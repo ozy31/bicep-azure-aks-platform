@@ -55,3 +55,14 @@ param workloadIdentities = [
 // Cost guardrail for the platform resource group (billing currency).
 param monthlyBudget = 500
 param budgetStartDate = '2026-12-01'
+
+// Data zone deployments keep prompts and completions inside the EU.
+param openAiDeployments = [
+  {
+    name: 'gpt-4o-mini'
+    model: 'gpt-4o-mini'
+    version: '2024-07-18'
+    sku: 'DataZoneStandard'
+    capacity: 10
+  }
+]
