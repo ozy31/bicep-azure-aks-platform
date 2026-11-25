@@ -25,10 +25,13 @@ subscription
     │   ├── Azure CNI Overlay + Cilium dataplane and network policy
     │   ├── workload identity + OIDC issuer
     │   ├── system pool (tainted CriticalAddonsOnly) + user pools
+    │   ├── GPU inference pool, scales from zero (Spot in dev)
+    │   ├── KEDA and VPA add-ons
     │   ├── Key Vault CSI driver, Azure Policy, image cleaner
     │   └── prod: Defender for Containers, cost analysis, Standard tier
     ├── Key Vault (RBAC, public access off, private endpoint)
     ├── ACR Premium (admin user off, public access off, private endpoint)
+    ├── Azure OpenAI (optional: keys off, public access off, private endpoint, pinned models)
     ├── Log Analytics (shared keys off) + diagnostics on every resource
     ├── Azure Monitor workspace (managed Prometheus) + alert rules
     ├── Service Health alert: Azure incidents for AKS, Key Vault, ACR, network in this region
@@ -49,6 +52,9 @@ subscription
 | Drain timeout and soak time per upgrade batch | same | A blocked drain fails fast, and a bad node image is visible before the next batch rolls. |
 | Defender for Containers in prod | same | Runtime threat detection where the real workloads run, without paying for it in dev. |
 | Break-glass principals exempt from deny settings | `scripts/deploy.sh` | `BREAK_GLASS_PRINCIPAL_IDS` lets an emergency account fix a broken resource when the pipeline is down; everyone else stays denied. |
+| Azure OpenAI without API keys | `modules/ai/openai.bicep` | `disableLocalAuth` plus a private endpoint: pods call models with workload identity, and only identities marked `openAi: true` get the OpenAI User role. |
+| Pinned model versions | same | A model version changes in a pull request, not on Microsoft's retirement schedule. |
+| GPU pool tainted and scaling from zero | `infra/params/*.bicepparam` | GPU nodes exist only while a pod that asked for one is pending. |
 | Cost budget per environment | `modules/cost/budget.bicep` | The forecast alert flags a month that is heading over budget while there is still time to act. |
 
 These are enforced by tests, not only documented: `tests/test_template.py`
@@ -75,6 +81,10 @@ make apply ENV=dev
 scripts/kubeconfig.sh dev    # from inside the network; the API server is private
 ```
 
+Azure OpenAI is created only when `openAiDeployments` is set (dev deploys
+`gpt-4o-mini`). The `openAiEndpoint` output and a workload identity's client
+ID are all a pod needs; there is no key to distribute.
+
 `BREAK_GLASS_PRINCIPAL_IDS` (comma-separated object IDs, optional) adds
 emergency accounts to the deny-settings exclusions next to the deployer.
 
@@ -91,6 +101,7 @@ Everything routes to one action group per environment:
 | --- | --- |
 | Managed Prometheus | crash looping pods, NotReady nodes, node filesystem and PVCs filling up, deployments short of replicas, failed Jobs |
 | Service Health | Azure incidents, required actions, maintenance and security advisories for the platform's services in its region |
+| Azure OpenAI | sustained HTTP 429 (a deployment is out of tokens-per-minute quota) |
 | Cost Management | 80% of the monthly budget spent, 100% forecast |
 
 The tests check that every Prometheus rule has a hold time, a severity, an
@@ -115,10 +126,11 @@ modules/network             vnet, hub, spoke, hub-attach, private endpoint
 modules/aks                 cluster, identities, node pools, diagnostics
 modules/security            Key Vault
 modules/registry            ACR
+modules/ai                  Azure OpenAI account, model deployments, quota alert
 modules/identity            AcrPull, federated workload identities
 modules/monitoring          Log Analytics, managed Prometheus, alerts
 modules/cost                monthly budget with actual and forecast alerts
-docs/adr                    design decisions (stacks, networking, upgrades)
+docs/adr                    design decisions (stacks, networking, upgrades, AI workloads)
 ```
 
 ## Status
