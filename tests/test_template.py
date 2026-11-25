@@ -130,7 +130,15 @@ class SecurityBaseline(unittest.TestCase):
         pools = [cluster["properties"]["agentPoolProfiles"][0]]
         pools += [p["properties"] for p in of_type("Microsoft.ContainerService/managedClusters/agentPools")]
         for pool in pools:
-            self.assertEqual(pool["upgradeSettings"], "[variables('upgradeSettings')]")
+            # Spot pools skip surge settings; every other pool uses the shared ones.
+            self.assertIn("variables('upgradeSettings')", pool["upgradeSettings"])
+
+    def test_spot_pools_are_deleted_on_eviction(self):
+        pool = of_type("Microsoft.ContainerService/managedClusters/agentPools")[0]["properties"]
+        self.assertIn("'Regular'", pool["scaleSetPriority"])
+        self.assertIn("'Delete'", pool["scaleSetEvictionPolicy"])
+        # Capping the price below on-demand would evict nodes on every price change.
+        self.assertIn("json('-1')", pool["spotMaxPrice"])
 
     def test_key_vault_is_private_and_rbac(self):
         for vault in of_type("Microsoft.KeyVault/vaults"):

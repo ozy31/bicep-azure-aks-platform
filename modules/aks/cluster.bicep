@@ -209,8 +209,8 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
         osDiskType: 'Ephemeral'
         osDiskSizeGB: systemPool.?osDiskSizeGB ?? 128
         enableAutoScaling: true
-        count: systemPool.minCount
-        minCount: systemPool.minCount
+        count: max(systemPool.minCount, 1)
+        minCount: max(systemPool.minCount, 1)
         maxCount: systemPool.maxCount
         availabilityZones: systemPool.zones
         vnetSubnetID: nodeSubnetId
@@ -276,7 +276,12 @@ resource pools 'Microsoft.ContainerService/managedClusters/agentPools@2024-09-01
       maxPods: 110
       nodeTaints: pool.?taints ?? []
       nodeLabels: pool.?labels ?? {}
-      upgradeSettings: upgradeSettings
+      // Spot nodes are deleted on eviction and paid at up to the on-demand price.
+      scaleSetPriority: pool.?priority ?? 'Regular'
+      scaleSetEvictionPolicy: pool.?priority == 'Spot' ? 'Delete' : null
+      spotMaxPrice: pool.?priority == 'Spot' ? json('-1') : null
+      // Surge settings are rejected on Spot pools; they replace nodes in place.
+      upgradeSettings: pool.?priority == 'Spot' ? null : upgradeSettings
     }
   }
 ]

@@ -35,7 +35,8 @@ type nodePool = {
   @maxLength(12)
   name: string
   vmSize: string
-  @minValue(1)
+  @description('0 lets a user pool scale to zero; the system pool always keeps at least one node.')
+  @minValue(0)
   minCount: int
   @maxValue(100)
   maxCount: int
@@ -45,6 +46,8 @@ type nodePool = {
   @description('Taints, e.g. "workload=batch:NoSchedule".')
   taints: string[]?
   labels: { *: string }?
+  @description('Spot pools run on evictable capacity; AKS adds the spot taint automatically.')
+  priority: ('Regular' | 'Spot')?
 }
 
 @export()
