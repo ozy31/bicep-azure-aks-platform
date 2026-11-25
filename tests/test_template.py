@@ -170,6 +170,15 @@ class SecurityBaseline(unittest.TestCase):
             self.assertEqual(deployment["properties"]["versionUpgradeOption"], "NoAutoUpgrade")
             self.assertEqual(deployment["copy"]["batchSize"], 1)
 
+    def test_openai_throttling_alerts(self):
+        alert = of_type("Microsoft.Insights/metricAlerts")[0]
+        props = alert["properties"]
+        criterion = props["criteria"]["allOf"][0]
+        self.assertEqual(criterion["metricName"], "AzureOpenAIRequests")
+        self.assertIn({"name": "StatusCode", "operator": "Include", "values": ["429"]}, criterion["dimensions"])
+        self.assertIs(props["autoMitigate"], True)
+        self.assertTrue(props["actions"])
+
     def test_log_analytics_disables_shared_keys(self):
         for workspace in of_type("Microsoft.OperationalInsights/workspaces"):
             self.assertIs(workspace["properties"]["features"]["disableLocalAuth"], True)

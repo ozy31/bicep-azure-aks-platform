@@ -10,6 +10,10 @@ param name string
 param privateEndpointSubnetId string
 param privateDnsZoneId string
 param logAnalyticsId string
+param actionGroupId string
+
+@description('Throttled (HTTP 429) requests per 15 minutes before the quota alert fires.')
+param throttleAlertThreshold int = 50
 
 @description('Model deployments. Capacity is in thousands of tokens per minute.')
 param deployments {
@@ -92,6 +96,44 @@ resource diagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' 
     ]
     metrics: [
       { category: 'AllMetrics', enabled: true }
+    ]
+  }
+}
+
+// Sustained 429s mean the deployment needs more tokens-per-minute capacity
+// (or a second region), not that callers should retry harder.
+resource throttleAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-${name}-throttled'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'Azure OpenAI is rejecting requests with 429: a deployment is out of quota.'
+    severity: 2
+    enabled: true
+    scopes: [account.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          criterionType: 'StaticThresholdCriterion'
+          name: 'throttled'
+          metricNamespace: 'Microsoft.CognitiveServices/accounts'
+          metricName: 'AzureOpenAIRequests'
+          dimensions: [
+            { name: 'StatusCode', operator: 'Include', values: ['429'] }
+            { name: 'ModelDeploymentName', operator: 'Include', values: ['*'] }
+          ]
+          operator: 'GreaterThan'
+          threshold: throttleAlertThreshold
+          timeAggregation: 'Total'
+        }
+      ]
+    }
+    actions: [
+      { actionGroupId: actionGroupId }
     ]
   }
 }

@@ -152,6 +152,7 @@ module openAi '../modules/ai/openai.bicep' = if (enableOpenAi) {
     privateDnsZoneId: hub.outputs.privateDnsZoneIds[?openAiZone] ?? ''
     logAnalyticsId: monitoring.outputs.logAnalyticsId
     deployments: openAiDeployments
+    actionGroupId: monitoring.outputs.actionGroupId
   }
 }
 
