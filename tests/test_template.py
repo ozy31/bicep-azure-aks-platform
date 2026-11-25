@@ -107,6 +107,12 @@ class SecurityBaseline(unittest.TestCase):
         # Pods get as long to stop on scale-down as on upgrade drains.
         self.assertLessEqual(int(profile["max-graceful-termination-sec"]), 30 * 60)
 
+    def test_event_driven_and_vertical_autoscaling(self):
+        cluster = of_type("Microsoft.ContainerService/managedClusters")[0]
+        profile = cluster["properties"]["workloadAutoScalerProfile"]
+        self.assertIs(profile["keda"]["enabled"], True)
+        self.assertIs(profile["verticalPodAutoscaler"]["enabled"], True)
+
     def test_aks_uses_overlay_and_network_policy(self):
         for cluster in of_type("Microsoft.ContainerService/managedClusters"):
             net = cluster["properties"]["networkProfile"]

@@ -173,6 +173,17 @@ resource cluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
       'skip-nodes-with-local-storage': 'false'
       'max-graceful-termination-sec': '600'
     }
+    // KEDA scales deployments on queue depth or Prometheus queries instead of
+    // CPU only (inference queues, batch jobs); VPA recommends requests from
+    // real usage. Both are managed add-ons, upgraded with the cluster.
+    workloadAutoScalerProfile: {
+      keda: {
+        enabled: true
+      }
+      verticalPodAutoscaler: {
+        enabled: true
+      }
+    }
     autoUpgradeProfile: {
       upgradeChannel: 'patch'
       nodeOSUpgradeChannel: 'NodeImage'
